@@ -1,0 +1,208 @@
+<!doctype html>
+<html>
+	<head>
+		<script src="https://threejs.org/build/three.js"></script>
+		<script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+		<script src="https://threejs.org/examples/js/controls/DeviceOrientationControls.js"></script>
+		<script src="https://threejs.org/examples/js/effects/StereoEffect.js"></script>
+		<script src="https://www.gstatic.com/firebasejs/5.4.0/firebase.js"></script>
+		<title>VR Demo</title>
+		<style>
+			*{
+				margin: 0;
+				padding: 0;
+				overflow: hidden;
+			}
+			body{
+				height: 100vh;
+				width: 100vw;
+			}
+			#bar{
+				mix-blend-mode: difference;
+				position: absolute;
+				height: 100vh;
+				width: 4px;
+				top: 0;
+				left: 50vw;
+				transform: translateX(-2px);
+				background-color: white;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="bar"></div>
+		<script>
+			var config = {
+				apiKey: "AIzaSyBCeTVF1RvVNAefmETbBgLOv6lN0btN0q8",
+				authDomain: "online-stuff-3e092.firebaseapp.com",
+				databaseURL: "https://online-stuff-3e092.firebaseio.com",
+				projectId: "online-stuff-3e092",
+				storageBucket: "online-stuff-3e092.appspot.com",
+				messagingSenderId: "878238554342"
+			};
+			firebase.initializeApp(config);
+			
+			var database = firebase.database();
+			
+			var mobile = navigator.userAgent.match("Mobile")!=null||navigator.userAgent.match("Linux;")!=null;
+			
+			var camera, renderer, scene;
+			scene = new THREE.Scene();
+			renderer = new THREE.WebGLRenderer();
+			renderer.setPixelRatio(window.devicePixelRatio);
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			
+			var element = renderer.domElement;
+			document.body.appendChild(element);
+			
+			scene.background = new THREE.Color("#AAA");
+			scene.fog = new THREE.Fog(scene.background, 0, 50);
+			
+			camera = new THREE.PerspectiveCamera(
+				90,
+				window.innerWidth / window.innerHeight,
+				0.01,
+				100
+			);
+			// camera = new THREE.OrthographicCamera(-10, 10, -10, 10, 1, 1000);
+			camera.position.set(0, 0, 0);
+			var player = new THREE.Object3D();
+			player.add(camera);
+			player.position.set(0, 3, 0);
+			scene.add(player);
+			
+			var texture = new THREE.TextureLoader().load("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAYAAADDPmHLAAAB+ElEQVR4Xu3X0RGDMAxEQbktXD+0BUM+kkkNb+nA3I5OWjNzjy/7B9YL4DzP7A8oP3zvPV8Ax3GU/0Xu7dd1DQC52H8PBiAc/vt0AABQAWUDJkA5fRUQTx8AAFRA3AAAALgCygZMgHL6lsB4+gAAoALiBgAAwBVQNmAClNO3BMbTBwAAFRA3AAAAroCyAROgnL4lMJ4+AACogLgBAABwBZQNmADl9C2B8fQBAEAFxA0AAIAroGzABCinbwmMpw8AACogbgAAAFwBZQMmQDl9S2A8fQAAUAFxAwAA4AooGzAByulbAuPpAwCACogbAAAAV0DZgAlQTt8SGE8fAABUQNwAAAC4AsoGTIBy+pbAePoAAKAC4gYAAMAVUDZgApTTtwTG0wcAABUQNwAAAK6AsgEToJy+JTCePgAAqIC4AQAAcAWUDZgA5fQtgfH0AQBABcQNAACAK6BswAQop28JjKcPAAAqIG4AAABcAWUDJkA5fUtgPH0AAFABcQMAAOAKKBswAcrpWwLj6QMAgAqIGwAAAFdA2YAJUE7fEhhPHwAAVEDcAAAAuALKBkyAcvqWwHj6AACgAuIGAADAFVA2YAKU07cExtMHAAAVEDcAAACugLIBE6CcviUwnj4AAKiAuAEAAPi/AuL/I/n8vfesmbmTr/fozx94AKytbi6tB7FOAAAAAElFTkSuQmCC");
+			texture.wrapS = THREE.RepeatWrapping;
+			texture.wrapT = THREE.RepeatWrapping;
+			texture.repeat.set(100, 100);
+			
+			var tex2 = new THREE.TextureLoader().load("data:image/png;base64,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");
+			tex2.minFilter = THREE.NearestFilter;
+			
+			var screen = new THREE.Mesh(
+				new THREE.PlaneBufferGeometry(10, 10),
+				new THREE.MeshStandardMaterial({color: new THREE.Color("white"), map: tex2, roughness: 0.5, metalness: 0})
+			);
+			screen.position.set(-20, 10, 0);
+			screen.rotation.set(0, Math.PI / 2, 0);
+			scene.add(screen);
+			
+			var material = new THREE.MeshStandardMaterial({color: new THREE.Color("white"), roughness: 0.5, metalness: 0});
+			
+			var ground = new THREE.Mesh(
+				new THREE.PlaneBufferGeometry(100, 100),
+				new THREE.MeshStandardMaterial({color: new THREE.Color("white"), map: texture, roughness: 0.5, metalness: 0})
+			);
+			ground.rotation.set(-Math.PI / 2, 0, 0);
+			scene.add(ground);
+			
+			var meshes = [
+				new THREE.DodecahedronBufferGeometry(20, 0),
+				new THREE.IcosahedronBufferGeometry(20, 0),
+				new THREE.OctahedronBufferGeometry(20, 0),
+				new THREE.OctahedronBufferGeometry(20, 0)
+			];
+			var ob = [];
+			for(var i = 0; i < 5; i++){
+				var obj1 = new THREE.Mesh(
+					meshes[Math.floor(Math.random() * meshes.length)],
+					material
+				);
+				obj1.position.set(Math.sin(i / 2.5 * Math.PI) * (30 + 40 * Math.random()), Math.random() * 10, Math.cos(i / 2.5 * Math.PI) * (30 + 40 * Math.random()));
+				scene.add(obj1);
+				ob.push(obj1);
+			}
+			
+			var boxes = [];
+			for(var i = 0; i < 5; i++){
+				var b = new THREE.Mesh(
+					meshes[Math.floor(Math.random() * meshes.length)],
+					material
+				);
+				b.position.set(0, 0, 0);
+				b.scale.set(0.05, 0.05, 0.05);
+				scene.add(b);
+				boxes.push(b);
+			}
+			
+			// var mobile = navigator.userAgent.match("Mobile")!=null||navigator.userAgent.match("Linux;")!=null;
+			var controls;
+			if(mobile)
+				controls = new THREE.DeviceOrientationControls(camera);
+			camera.rotation.set(0, 0, 0, "YXZ");
+			
+			var effect = new THREE.StereoEffect(renderer);
+			effect.setSize(window.innerWidth, window.innerHeight);
+			effect.setEyeSeparation(0.5);
+			
+			var light = new THREE.DirectionalLight(0xffffff, 0.5);
+			light.position.set(0.5, 0.7, 1);
+			scene.add(light);
+			scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+			
+			var touch = false;
+			var mouse = false;
+			
+			var x = 0;
+			
+			if(!mobile){
+				database.ref("VR").on("value", function(e){
+					var e = e.val();
+					camera.rotation.set(e.x, e.y, e.z);
+					x = e.t;
+				});
+				document.getElementById("bar").outerHTML = "";
+			}
+			
+			function render() {
+				requestAnimationFrame(render);
+				for(var i = 0; i < ob.length; i++)
+					ob[i].rotation.set(x / 2000, x / 1200, x / 800);
+				for(var i = 0; i < boxes.length; i++){
+					var b = boxes[i];
+					b.position.set(Math.cos(i + x / 50) * 10, Math.sin(i + x / 100) * 5 + 6, Math.sin(i + x / 75) * 10);
+					b.rotation.set(Math.cos(i + x / 50) * 10, Math.sin(i + x / 100) * 5 + 5, Math.sin(i + x / 75) * 10);
+				}
+				if(mobile){
+					controls.update();
+					camera.rotation.y -= Math.PI / 2;
+					effect.render(scene, camera);
+					database.ref("VR").set({
+						x: camera.rotation.x,
+						y: camera.rotation.y,
+						z: camera.rotation.z,
+						t: x
+					});
+				}else{
+					renderer.render(scene, camera);
+				}
+				x++;
+			}
+			
+			requestAnimationFrame(render);
+			
+			window.ontouchstart = function(){
+				touch = true;
+			}
+			
+			window.ontouchend = function(){
+				touch = false;
+			}
+			
+			// window.onmousedown = function(){
+			// 	mouse = true;
+			// }
+			
+			// window.onmousemove = function(e){
+			// 	if(mouse && !mobile){
+			// 		camera.rotation.x += e.movementY / 200;
+			// 		camera.rotation.y += e.movementX / 200;
+			// 	}
+			// }
+			
+			// window.onmouseup = function(){
+			// 	mouse = false;
+			// }
+		</script>
+	</body>
+</html>
